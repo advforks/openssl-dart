@@ -13,9 +13,41 @@
     "linux-arm64"
   ],
   "artifacts": {
+    "android-arm64-v8a/libcrypto.so": {
+      "sha256": "a95529bf8a9db692764d3e50a6f6a8a3daf920de8b356cf5c537fe5825764443",
+      "bytes": 6492152
+    },
+    "android-x86_64/libcrypto.so": {
+      "sha256": "2f861f8425912c73d252a4ca91d4eabb9430344fc3bc357602a20a19416aa18d",
+      "bytes": 6746256
+    },
+    "ios-xcframework/OpenSSL.xcframework/ios-arm64-simulator/libcrypto.a": {
+      "sha256": "41b6c624c1f2cf7bc67db376961a635e8d002ec4e3cd0be669976761e248a492",
+      "bytes": 8640248
+    },
+    "ios-xcframework/OpenSSL.xcframework/ios-arm64/libcrypto.a": {
+      "sha256": "cc977cecd1e469954eb717d4fdaa1c51b97bd75a7d1e42774738db65597c2f56",
+      "bytes": 8633160
+    },
+    "linux-arm64/libcrypto.so.3": {
+      "sha256": "8dd3811b20878004d71450ebd3d73d38ef51866c701a4aa0f1012ff72992d262",
+      "bytes": 6825648
+    },
+    "linux-x64/libcrypto.so.3": {
+      "sha256": "ef0c1e8783f64cca69996c979884836dddd57b76c3f25b3a1c1bb1e2fba85202",
+      "bytes": 7252928
+    },
+    "macos-universal/libcrypto.dylib": {
+      "sha256": "64a2c2667cc3f8e9c33f8d8699b73d7f6ac18a7ce107e7f9dfd65df42878eab3",
+      "bytes": 10384848
+    },
     "windows-arm64/libcrypto-3-arm64.dll": {
-      "sha256": "a38fcafffd0146f1e8a562f2eee87f80c0193435bf374bc6e67f31e3cb11842a",
-      "bytes": 7221760
+      "sha256": "48653fd5c7e04a94f06c15000da405f31f5d70f4219db79e0b7b419de84d5159",
+      "bytes": 7179264
+    },
+    "windows-x64/libcrypto-3-x64.dll": {
+      "sha256": "772184cb6222f9eb14cfab4db06ebd28b98531d70cea26dde9e47f12c0b73a0f",
+      "bytes": 5607424
     }
   }
 }
