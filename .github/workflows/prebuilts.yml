@@ -31,7 +31,7 @@ jobs:
       should_build: ${{ steps.compare.outputs.should_build }}
       openssl_version: ${{ steps.version.outputs.openssl_version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           lfs: true
@@ -123,7 +123,7 @@ jobs:
             script: native/build/windows.ps1
             optional: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           lfs: true
@@ -179,7 +179,7 @@ jobs:
     if: needs.check-hash.outputs.should_build == 'true' && needs.build-prebuilts.result == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           lfs: true

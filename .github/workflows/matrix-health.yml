@@ -42,7 +42,7 @@ jobs:
             triple: windows-arm64
             script: native/build/windows.ps1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
