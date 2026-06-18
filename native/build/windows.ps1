@@ -4,11 +4,15 @@ param(
   [string]$Triple,
 
   [string]$OutDir = '',
-  [string]$PrebuiltDir = ''
+  [string]$PrebuiltDir = '',
+  [switch]$Quiet
 )
 
 $ErrorActionPreference = 'Stop'
+$VerboseBuild = ($env:OPENSSL_BOOTSTRAP_VERBOSE -eq '1')
+$QuietMode = $Quiet -or (-not $VerboseBuild)
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $ScriptDir 'bootstrap_tools.ps1')
 $NativeDir = Resolve-Path (Join-Path $ScriptDir '..')
 $RepoRoot = Resolve-Path (Join-Path $NativeDir '..')
 
@@ -24,36 +28,22 @@ $Config = switch ($Triple) {
 
 function Ensure-OpenSslSrc {
   if (Test-Path (Join-Path $OpenSslSrc 'Configure')) { return $OpenSslSrc }
-  $work = Join-Path $RepoRoot 'native\out\_src'
-  New-Item -ItemType Directory -Force -Path $work | Out-Null
+  $tarballDir = Join-Path $RepoRoot 'native\out\_src'
+  $work = Join-Path $tarballDir $Triple
+  New-Item -ItemType Directory -Force -Path $work, $tarballDir | Out-Null
   $tarball = "openssl-$Version.tar.gz"
   $url = "https://github.com/openssl/openssl/releases/download/openssl-$Version/$tarball"
-  $tarPath = Join-Path $work $tarball
+  $tarPath = Join-Path $tarballDir $tarball
   if (-not (Test-Path $tarPath)) {
-    curl.exe -L $url -o $tarPath
+    $exit = Invoke-NativeCommand -Command { curl.exe -L $url -o $tarPath }
+    if ($exit -ne 0) { throw "Failed to download OpenSSL source (exit $exit)" }
   }
   $extracted = Join-Path $work "openssl-$Version"
+  if (Test-Path (Join-Path $extracted 'Configure')) { return $extracted }
   if (-not (Test-Path $extracted)) {
     tar -xzf $tarPath -C $work
   }
   return $extracted
-}
-
-function Resolve-PerlExe {
-  if ($env:PERL -and (Test-Path -LiteralPath $env:PERL)) {
-    return $env:PERL
-  }
-  foreach ($candidate in @(
-      'C:\Strawberry\perl\bin\perl.exe',
-      'C:\strawberry\perl\bin\perl.exe'
-    )) {
-    if (Test-Path -LiteralPath $candidate) { return $candidate }
-  }
-  $cmd = Get-Command perl -ErrorAction SilentlyContinue
-  if ($cmd -and $cmd.Source -notmatch '\\Git\\') {
-    return $cmd.Source
-  }
-  throw 'Strawberry Perl not found (install: choco install strawberryperl)'
 }
 
 function Get-VcVarsEnv([string]$Arch) {
@@ -72,7 +62,7 @@ function Get-VcVarsEnv([string]$Arch) {
       return $env
     }
   }
-  throw "vcvars not found"
+  throw 'vcvars not found'
 }
 
 $src = Ensure-OpenSslSrc
@@ -80,14 +70,39 @@ $arch = if ($Triple -eq 'windows-arm64') { 'arm64' } else { 'x64' }
 $vcEnv = Get-VcVarsEnv $arch
 foreach ($k in $vcEnv.Keys) { Set-Item -Path "env:$k" -Value $vcEnv[$k] }
 
-$perl = Resolve-PerlExe
+$toolsDir = Join-Path $RepoRoot 'native\out\_bootstrap-tools'
+$perl = Resolve-PerlExe -ToolsDir $toolsDir
+Ensure-JomOnPath -ToolsDir $toolsDir | Out-Null
 Write-Host "Using perl: $perl"
 
+$logDir = Join-Path $RepoRoot 'native\out'
+$logFile = New-BuildLogPath -LogDir $logDir -Triple $Triple
+
 Push-Location $src
-$args = @('Configure', $Config, 'no-unit-test', 'no-makedepend', 'no-ssl', 'no-apps', 'no-asm', '/FS')
-& $perl @args
-if (-not (Get-Command jom -ErrorAction SilentlyContinue)) { throw 'jom required on PATH' }
-& jom -j $env:NUMBER_OF_PROCESSORS
+$configureArgs = @('Configure', $Config, 'no-unit-test', 'no-makedepend', 'no-ssl', 'no-apps', 'no-asm', '/FS')
+if ($QuietMode) {
+  Write-Host "Configuring OpenSSL for $Triple (quiet; full log: $logFile)"
+  Initialize-BuildLog -Path $logFile
+  $cfgExit = Invoke-Executable -FilePath $perl -ArgumentList $configureArgs -LogFile $logFile -Quiet
+  if ($cfgExit -ne 0) {
+    Show-BuildLogTail -Path $logFile
+    throw "OpenSSL Configure failed (exit $cfgExit)"
+  }
+  Write-Host 'Compiling libcrypto with jom ...'
+  $jomExe = (Get-Command jom).Source
+  $jomExit = Invoke-Executable -FilePath $jomExe -ArgumentList @('-j', $env:NUMBER_OF_PROCESSORS) -LogFile $logFile -Quiet
+  if ($jomExit -ne 0) {
+    Show-BuildLogTail -Path $logFile
+    throw "jom build failed (exit $jomExit)"
+  }
+  Write-Host "Build finished. Log: $logFile"
+} else {
+  & $perl @configureArgs
+  if ($LASTEXITCODE -ne 0) { throw "OpenSSL Configure failed (exit $LASTEXITCODE)" }
+  if (-not (Get-Command jom -ErrorAction SilentlyContinue)) { throw 'jom required on PATH' }
+  jom -j $env:NUMBER_OF_PROCESSORS
+  if ($LASTEXITCODE -ne 0) { throw "jom build failed (exit $LASTEXITCODE)" }
+}
 Pop-Location
 
 $dll = Get-ChildItem -Path $src -Filter 'libcrypto*.dll' | Select-Object -First 1
